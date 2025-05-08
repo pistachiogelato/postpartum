@@ -1,0 +1,40 @@
+# 依赖目录
+node_modules/
+.pnpm/
+.yarn/
+
+# 环境变量
+.env
+.env.local
+.env*.local
+
+# 日志文件
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 系统文件
+.DS_Store
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# 构建产物
+dist/
+build/
+out/
+.cache/
+.tmp/
+
+# 包管理器配置
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+.next/
+.next/*

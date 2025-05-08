@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-100;
+  }
+}
+
+body {
+  @apply bg-warm-cream text-felted-brown;
+  font-family: 'Nunito', sans-serif;
+}
+
+.breathing-animation {
+  animation: breathe 3s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.02);
+    opacity: 0.95;
+  }
+}
+
+.warm-shadow {
+  box-shadow: 0 4px 6px rgba(139, 69, 19, 0.1);
+}
+
+.felted-background {
+  background: linear-gradient(135deg, #FFF5E1 0%, #F5E6D3 100%);
+  border-radius: 1rem;
+  padding: 1rem;
+}
