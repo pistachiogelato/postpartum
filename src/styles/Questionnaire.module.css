@@ -1,0 +1,95 @@
+/* 修改预览容器的样式 */
+.previewContainer {
+  scrollbar-width: thin;
+  scrollbar-color: #E67300 #F5E9DC;
+}
+
+.previewContainer::-webkit-scrollbar {
+  width: 8px;
+}
+
+.previewContainer::-webkit-scrollbar-track {
+  background: #F5E9DC;
+  border-radius: 10px;
+}
+
+.previewContainer::-webkit-scrollbar-thumb {
+  background-color: #E67300;
+  border-radius: 10px;
+  border: 2px solid #F5E9DC;
+}
+
+/* 确保问题项在容器中正确显示 */
+.question-item {
+  width: 100%;
+  margin-bottom: 1.5rem;
+  padding: 1.5rem;
+  background-color: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.question-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.radio-options label {
+  display: block;
+  margin: 0.8rem 0;
+  padding: 0.8rem;
+  background: white;
+  border-radius: 8px;
+}
+
+.time-segment {
+  margin: 1rem 0;
+  display: flex;
+  align-items: center;
+}
+
+.drag-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.drag-segment {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.drag-segment input[type="range"] {
+  flex-grow: 1;
+}
+
+.time-segment input[type="range"] {
+  flex-grow: 1;
+  margin: 0 1rem;
+}
+
+/* 确保提交按钮样式正确 */
+.submit-button {
+  width: 100%;
+  padding: 0.75rem 1.5rem;
+  background-color: #E67300;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-weight: bold;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: all 0.2s ease;
+  margin-top: 1rem;
+}
+
+.submit-button:hover {
+  background-color: #D56200;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+
+

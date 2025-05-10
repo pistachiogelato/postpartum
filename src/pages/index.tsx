@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { useUser } from '@/contexts/UserContext';
+import { useFamilyCode } from '@/contexts/FamilyCodeContext';
 import Questionnaire from '@/components/Questionnaire';
 
 type Stage = 'name' | 'type' | 'questionnaire';
@@ -13,8 +14,17 @@ const encouragementMessages = [
 ];
 
 export default function Home() {
+  const [error, setError] = useState('');  // 添加这行
   const { userName, setUserName, userType, setUserType } = useUser();
+  const { 
+    familyCode,
+    setFamilyCode,
+    password,
+    setPassword,
+    generateFamilyCode
+  } = useFamilyCode();
   const [stage, setStage] = useState<Stage>('name');
+  const [showLogin, setShowLogin] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm<{ name: string }>();
 
   const onNameSubmit: SubmitHandler<{ name: string }> = (data) => {
@@ -33,6 +43,23 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-warm-cream flex items-center justify-center p-4">
+      {!showLogin && stage !== 'questionnaire' && (
+        <button 
+          onClick={() => setShowLogin(true)}
+          style={{
+            position: 'absolute',
+            top: '1rem',
+            right: '1rem',
+            padding: '0.5rem 1rem',
+            backgroundColor: '#F5E9DC',
+            border: 'none',
+            borderRadius: '0.5rem',
+            cursor: 'pointer'
+          }}
+        >
+          Login
+        </button>
+      )}
       <motion.div 
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -126,8 +153,159 @@ export default function Home() {
           )}
         </AnimatePresence>
       </motion.div>
+    {showLogin && (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(255, 245, 235, 0.95)',
+            zIndex: 1000,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center'
+          }}
+        >
+          <div style={{
+            backgroundColor: 'white',
+            padding: '2rem',
+            borderRadius: '1rem',
+            maxWidth: '500px',
+            width: '90%'
+          }}>
+            <h2 style={{ marginBottom: '1.5rem' }}>Login with Family Code</h2>
+            
+            {/* 添加角色选择 */}
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem' }}>Role:</label>
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setUserType('mother')}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    backgroundColor: userType === 'mother' ? '#E67300' : '#F5E9DC',
+                    border: 'none',
+                    borderRadius: '0.5rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Mother
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUserType('partner')}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    backgroundColor: userType === 'partner' ? '#E67300' : '#F5E9DC',
+                    border: 'none',
+                    borderRadius: '0.5rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Partner
+                </button>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem' }}>Family Code:</label>
+              <input 
+                type="text" 
+                value={familyCode}
+                onChange={(e) => setFamilyCode(e.target.value)}
+                style={{ 
+                  width: '100%', 
+                  padding: '0.75rem', 
+                  border: '1px solid #ddd', 
+                  borderRadius: '0.5rem'
+                }}
+              />
+            </div>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem' }}>Password:</label>
+              <input 
+                type="password" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                style={{ 
+                  width: '100%', 
+                  padding: '0.75rem', 
+                  border: '1px solid #ddd', 
+                  borderRadius: '0.5rem'
+                }}
+              />
+            </div>
+            
+            {/* 添加错误提示 */}
+            {error && (
+              <div className="text-red-500 text-sm text-center">
+                {error}
+              </div>
+            )}
+
+            <button 
+              onClick={() => {
+                // 直接调用验证逻辑，不使用表单提交
+                if (!userType) {
+                  setError('Please select your role');
+                } else if (!familyCode) {
+                  setError('Family code is required');
+                } else if (!password) {
+                  setError('Password is required');
+                } else {
+                  // 这里添加实际的登录验证逻辑
+                  console.log('Login attempt:', { userType, familyCode, password });
+                  
+                  // 登录成功后的处理
+                  setShowLogin(false);
+                  setStage('questionnaire');
+                  // 可以添加成功提示
+                  alert('Login successful!');
+                }
+              }}
+              style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#E67300',
+                color: 'white',
+                border: 'none',
+                borderRadius: '0.5rem',
+                cursor: 'pointer',
+                width: '100%'
+              }}
+            >
+              Login
+            </button>
+            <button 
+              onClick={() => {
+                setShowLogin(false);
+                setError('');
+              }}
+              style={{
+                marginTop: '1rem',
+                padding: '0.75rem 1.5rem',
+                backgroundColor: 'transparent',
+                color: '#E67300',
+                border: '1px solid #E67300',
+                borderRadius: '0.5rem',
+                cursor: 'pointer',
+                width: '100%'
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </motion.div>
+      )}
     </main>
   );
 }
+
 
 

@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useCallback } from 'react';
+import { motion } from 'framer-motion';
+import { useFamilyCode } from '../contexts/FamilyCodeContext';
+import { useUser } from '../contexts/UserContext';
+import styles from '../styles/Questionnaire.module.css';
 
 interface QuestionOption {
   label: string;
@@ -237,6 +240,33 @@ const Questionnaire: React.FC<QuestionnaireProps> = ({ type }) => {
   const [answers, setAnswers] = useState<Record<string, QuestionOption[]>>({});
   const [dragValues, setDragValues] = useState<Record<string, number>>({});
   const [completed, setCompleted] = useState(false);
+  const [showFamilyCodeSetup, setShowFamilyCodeSetup] = useState(false);
+  const [showFamilyCodeVerification, setShowFamilyCodeVerification] = useState(false);
+  const [tempFamilyCode, setTempFamilyCode] = useState('');
+  const [password, setPassword] = useState('');
+  const [securityQuestion, setSecurityQuestion] = useState('');
+  const [securityAnswer, setSecurityAnswer] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [verificationPassword, setVerificationPassword] = useState('');
+  const [error, setError] = useState('');
+  const [showLogin, setShowLogin] = useState(false);
+  
+    
+
+    
+    const { userType, setUserType } = useUser();
+  
+  const { 
+    familyCode,
+    setFamilyCode,
+    generateFamilyCode,
+    password: contextPassword, 
+    setPassword: setContextPassword,
+    securityQuestion: contextSecurityQuestion,
+    setSecurityQuestion: setContextSecurityQuestion,
+    securityAnswer: contextSecurityAnswer,
+    setSecurityAnswer: setContextSecurityAnswer
+  } = useFamilyCode();
 
   const questions = type === 'mother' ? motherQuestions : partnerQuestions;
 
@@ -256,15 +286,6 @@ const Questionnaire: React.FC<QuestionnaireProps> = ({ type }) => {
         [questionId]: [...current, answer]
       };
     });
-
-    // 自动进入下一题（单选/滑动条场景）
-    if (questions[currentQuestion].type === 'radio' || questions[currentQuestion].type === 'slider') {
-      if (currentQuestion < questions.length - 1) {
-        setTimeout(() => {
-          setCurrentQuestion(cq => cq + 1);
-        }, 1500); // 增加延迟到1.5秒，让用户有足够时间看到选择效果
-      }
-    }
   };
 
   const handleCheckbox = (questionId: string, option: QuestionOption) => {
@@ -277,6 +298,15 @@ const Questionnaire: React.FC<QuestionnaireProps> = ({ type }) => {
           ? current.filter((a: QuestionOption) => a.value !== option.value)
           : [...current, option]
       };
+    });
+  };
+
+  const togglePreviewAll = () => {
+    setShowAllQuestions(prev => !prev);
+    // 使用更可靠的滚动方法
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
     });
   };
 
@@ -338,8 +368,78 @@ const Questionnaire: React.FC<QuestionnaireProps> = ({ type }) => {
   const handleSubmit = () => {
     console.log('Answers:', answers);
     console.log('Drag Values:', dragValues);
+    
+    if (type === 'mother') {
+      // 母亲用户进入家庭码设置
+      const code = generateFamilyCode();
+      setTempFamilyCode(code);
+      setShowFamilyCodeSetup(true);
+      
+      // 滚动到家庭码设置部分
+      setTimeout(() => {
+        const element = document.getElementById('family-code-setup');
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
+    } else {
+      // 伴侣用户进入家庭码验证
+      setShowFamilyCodeVerification(true);
+      
+      // 滚动到家庭码验证部分
+      setTimeout(() => {
+        const element = document.getElementById('family-code-verification');
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
+    }
+  };
+
+  const handleFamilyCodeSetupSubmit = () => {
+    if (!password) {
+      setError('Please set a password');
+      return;
+    }
+    if (!securityQuestion) {
+      setError('Please set a security question');
+      return;
+    }
+    if (!securityAnswer) {
+      setError('Please provide an answer to your security question');
+      return;
+    }
+
+    // 保存到上下文
+    setFamilyCode(tempFamilyCode);
+    setContextPassword(password);
+    setContextSecurityQuestion(securityQuestion);
+    setContextSecurityAnswer(securityAnswer);
     setCompleted(true);
-    // 这里可以添加API调用或其他提交逻辑
+    setShowFamilyCodeSetup(false);
+    
+    // 显示成功消息
+    alert(`Your family code is: ${tempFamilyCode}\nPlease share this code with your partner.`);
+  };
+
+  const handleFamilyCodeVerification = () => {
+    if (!verificationCode) {
+      setError('Please enter the family code');
+      return;
+    }
+    if (!verificationPassword) {
+      setError('Please enter the password');
+      return;
+    }
+
+    // 验证家庭码和密码
+    if (verificationCode === familyCode && verificationPassword === contextPassword) {
+      setCompleted(true);
+      setShowFamilyCodeVerification(false);
+      alert('Family code verified successfully!');
+    } else {
+      setError('Invalid family code or password');
+    }
   };
 
   const handleNextQuestion = () => {
@@ -348,11 +448,54 @@ const Questionnaire: React.FC<QuestionnaireProps> = ({ type }) => {
     }
   };
 
+  // 修复登录表单提交问题
+  const handleLoginSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    if (!userType) {
+      setError('Please select your role');
+      return;
+    }
+    if (!familyCode) {
+      setError('Family code is required');
+      return;
+    }
+    if (!password) {
+      setError('Password is required');
+      return;
+    }
+    // 这里添加实际的登录验证逻辑
+    console.log('Login attempt:', { userType, familyCode, password });
+  };
+
+  const handleLoginClick = useCallback(() => {
+    if (!userType) {
+      setError('请选择您的角色');
+      return;
+    }
+    if (!familyCode) {
+      setError('家庭码是必填项');
+      return;
+    }
+    if (!contextPassword) {
+      setError('密码是必填项');
+      return;
+    }
+    
+    // 这里添加实际的登录验证逻辑
+    console.log('Login attempt:', { userType, familyCode, password: contextPassword });
+    
+    // 模拟登录成功
+    setCompleted(true);
+    setShowLogin(false);
+    alert('登录成功!');
+  }, [userType, familyCode, contextPassword]);
+
   const renderQuestionContent = (question: Question) => {
     switch (question.type) {
       case 'radio':
         return (
-          <div className="radio-options">
+          <div className={styles['radio-options']}>
             {question.options.map(option => (
               <label key={option.value} style={{ 
                 display: 'block', 
@@ -385,33 +528,32 @@ const Questionnaire: React.FC<QuestionnaireProps> = ({ type }) => {
       
       case 'checkbox':
         return (
-          <div className="checkbox-options">
+          <div className={styles['checkbox-options']}>
             {question.options.map(option => (
-              <label 
-                key={option.value} 
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  margin: '1rem 0',
-                  padding: '0.75rem',
-                  backgroundColor: answers[question.id]?.some(a => a.value === option.value) 
-                    ? '#F5F5DC' 
-                    : 'transparent',
-                  borderRadius: '0.5rem',
-                  transition: 'background-color 0.2s'
-                }}
-              >
-                <input 
-                  type="checkbox" 
-                  checked={answers[question.id]?.some(a => a.value === option.value) || false}
-                  onChange={() => handleCheckbox(question.id, option)}
-                  style={{
-                    marginRight: '1rem',
-                    width: '20px',
-                    height: '20px'
-                  }}
-                />
-                <span>{option.label}</span>
+              <label key={option.value} style={{ 
+                display: 'block', 
+                margin: '0.8rem 0',
+                padding: '0.8rem',
+                backgroundColor: answers[question.id]?.some(a => a.value === option.value) ? '#F5F5DC' : 'white',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <input 
+                    type="checkbox" 
+                    name={question.id}
+                    value={option.value}
+                    checked={answers[question.id]?.some(a => a.value === option.value) || false}
+                    onChange={() => handleCheckbox(question.id, option)}
+                    style={{ 
+                      marginRight: '1rem',
+                      width: '20px',
+                      height: '20px'
+                    }}
+                  />
+                  <span>{option.label}</span>
+                </div>
               </label>
             ))}
           </div>
@@ -419,167 +561,59 @@ const Questionnaire: React.FC<QuestionnaireProps> = ({ type }) => {
       
       case 'slider':
         return (
-          <div className="slider-container" style={{ width: '100%', padding: '1rem 0' }}>
+          <div className={styles['slider-container']} style={{ padding: '1rem 0' }}>
             <input 
               type="range" 
               min="0" 
               max="100" 
-              step="1"
-              value={dragValues[question.id] !== undefined ? dragValues[question.id] : 50}
-              onChange={(e) => {
-                const value = parseInt(e.target.value);
-                setDragValues(prev => ({
-                  ...prev,
-                  [question.id]: value
-                }));
-              }}
-              style={{ 
-                width: '100%',
-                height: '8px',
-                appearance: 'none',
-                background: 'linear-gradient(to right, #E0E0E0, #2E8B57)',
-                outline: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-            />
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem' }}>
-              <span style={{ fontSize: '0.8rem' }}>0% (Calm)</span>
-              <span style={{ fontSize: '0.8rem' }}>100% (Intense)</span>
-            </div>
-            <div style={{ 
-              textAlign: 'center', 
-              margin: '1rem 0', 
-              fontSize: '1.2rem', 
-              fontWeight: 'bold' 
-            }}>
-              <span>{dragValues[question.id] !== undefined ? dragValues[question.id] : 50}%</span>
-            </div>
-            <button
-              onClick={() => handleAnswer(question.id, { 
-                label: (dragValues[question.id] !== undefined ? dragValues[question.id] : 50).toString(), 
-                value: (dragValues[question.id] !== undefined ? dragValues[question.id] : 50).toString() 
+              value={dragValues[question.id] || 0}
+              onChange={(e) => setDragValues({
+                ...dragValues,
+                [question.id]: parseInt(e.target.value)
               })}
-              style={{
-                padding: '0.75rem 1.5rem',
-                backgroundColor: type === 'mother' ? '#E67300' : '#2E8B57',
-                color: 'white',
-                border: 'none',
-                borderRadius: '0.5rem',
-                cursor: 'pointer',
-                marginTop: '1rem',
-                width: '100%',
-                fontWeight: 'bold'
-              }}
-            >
-              Confirm
-            </button>
+              style={{ width: '100%' }}
+            />
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              marginTop: '0.5rem' 
+            }}>
+              <span>0%</span>
+              <span>{dragValues[question.id] || 0}%</span>
+              <span>100%</span>
+            </div>
           </div>
         );
       
       case 'drag':
-        // 计算当前问题的所有选项总和
-        const dragTotal = question.options.reduce(
-          (sum, opt) => sum + (dragValues[opt.value] || 0), 
-          0
-        );
-        
         return (
-          <div className="drag-container" style={{ width: '100%' }}>
+          <div className={styles['drag-container']} style={{ padding: '1rem 0' }}>
             {question.options.map(option => (
-              <div key={option.value} className="drag-segment" style={{ marginBottom: '1rem' }}>
-                <label style={{ marginBottom: '0.5rem', display: 'block' }}>{option.label}</label>
-                <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                  <input 
-                    type="range" 
-                    min="0" 
-                    max="100" 
-                    step="1"
-                    value={dragValues[option.value] || 0}
-                    onChange={(e) => handleDragChange(option.value, parseInt(e.target.value))}
-                    style={{ 
-                      flex: 1,
-                      height: '8px',
-                      appearance: 'none',
-                      background: 'linear-gradient(to right, #E0E0E0, #2E8B57)',
-                      outline: 'none',
-                      borderRadius: '4px',
-                      cursor: 'pointer'
-                    }}
-                  />
-                  <span style={{ 
-                    marginLeft: '1rem', 
-                    minWidth: '40px', 
-                    fontWeight: 'bold' 
-                  }}>
-                    {dragValues[option.value] || 0}%
-                  </span>
-                </div>
+              <div key={option.value} style={{ 
+                display: 'flex', 
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                margin: '1rem 0'
+              }}>
+                <span style={{ flex: '0 0 150px' }}>{option.label}</span>
+                <input 
+                  type="range" 
+                  min="0" 
+                  max="100" 
+                  value={dragValues[option.value] || 0}
+                  onChange={(e) => handleDragChange(option.value, parseInt(e.target.value))}
+                  style={{ flex: '1', margin: '0 1rem' }}
+                />
+                <span style={{ 
+                  flex: '0 0 50px', 
+                  textAlign: 'right',
+                  minWidth: '40px', 
+                  fontWeight: 'bold' 
+                }}>
+                  {dragValues[option.value] || 0}%
+                </span>
               </div>
             ))}
-            <div style={{ 
-              marginTop: '1rem', 
-              display: 'flex', 
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '0.5rem',
-              backgroundColor: dragTotal > 100 ? '#FFEBEE' : dragTotal === 100 ? '#E8F5E9' : '#FFF8E1',
-              borderRadius: '0.5rem'
-            }}>
-              <span style={{ 
-                fontSize: '0.9rem', 
-                fontWeight: 'bold',
-                color: dragTotal > 100 ? '#D32F2F' : dragTotal === 100 ? '#2E7D32' : '#F57C00'
-              }}>
-                Total: {dragTotal}%
-              </span>
-              <span style={{ 
-                fontSize: '0.8rem',
-                color: dragTotal > 100 ? '#D32F2F' : dragTotal === 100 ? '#2E7D32' : '#F57C00'
-              }}>
-                {dragTotal > 100 ? 'Please reduce to 100%' : 
-                 dragTotal < 100 ? 'Aim for 100%' : 
-                 'Perfect!'}
-              </span>
-            </div>
-            
-            {/* 添加确认按钮 */}
-            <button
-              onClick={() => {
-                // 创建一个包含所有拖拽值的答案对象
-                const dragAnswers = question.options.map(opt => ({
-                  label: opt.label,
-                  value: opt.value,
-                  score: dragValues[opt.value] || 0
-                }));
-                
-                // 为每个选项设置答案
-                dragAnswers.forEach(answer => {
-                  handleAnswer(question.id, answer);
-                });
-                
-                // 自动进入下一题
-                if (currentQuestion < questions.length - 1) {
-                  setTimeout(() => {
-                    setCurrentQuestion(cq => cq + 1);
-                  }, 500);
-                }
-              }}
-              disabled={dragTotal > 100}
-              style={{
-                marginTop: '1.5rem',
-                padding: '0.75rem 1.5rem',
-                backgroundColor: dragTotal > 100 ? '#CCCCCC' : (type === 'mother' ? '#E67300' : '#2E8B57'),
-                color: 'white',
-                border: 'none',
-                borderRadius: '0.5rem',
-                cursor: dragTotal > 100 ? 'not-allowed' : 'pointer',
-                width: '100%',
-                fontWeight: 'bold'
-              }}
-            >
-              Confirm
-            </button>
           </div>
         );
       
@@ -588,185 +622,464 @@ const Questionnaire: React.FC<QuestionnaireProps> = ({ type }) => {
     }
   };
 
-  if (completed) {
+  // 渲染家庭码设置表单
+  const renderFamilyCodeSetup = () => {
     return (
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.5 }}
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center',
-          backgroundColor: 'rgba(255, 245, 235, 0.9)',
-          zIndex: 1000,
-          padding: '2rem',
-          boxSizing: 'border-box',
-          overflow: 'auto'
-        }}
-      >
-        <h2>Thank you for completing the questionnaire!</h2>
-        <p>Your responses have been recorded.</p>
-      </motion.div>
+      <div id="family-code-setup" className="family-code-setup" style={{
+        backgroundColor: 'white',
+        padding: '2rem',
+        borderRadius: '0.75rem',
+        maxWidth: '500px',
+        margin: '0 auto'
+      }}>
+        <h3 style={{ marginBottom: '1.5rem', textAlign: 'center' }}>Set Up Your Family Code</h3>
+        <p style={{ marginBottom: '1rem' }}>Your family code is: <strong>{tempFamilyCode}</strong></p>
+        <p style={{ marginBottom: '1.5rem' }}>Please set a password and security question to protect your family code.</p>
+        
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem' }}>Password:</label>
+          <input 
+            type="password" 
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={{ 
+              width: '100%', 
+              padding: '0.75rem', 
+              border: '1px solid #ddd', 
+              borderRadius: '0.5rem'
+            }}
+          />
+        </div>
+        
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem' }}>Security Question:</label>
+          <input 
+            type="text" 
+            value={securityQuestion}
+            onChange={(e) => setSecurityQuestion(e.target.value)}
+            style={{ 
+              width: '100%', 
+              padding: '0.75rem', 
+              border: '1px solid #ddd', 
+              borderRadius: '0.5rem'
+            }}
+          />
+        </div>
+        
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem' }}>Answer:</label>
+          <input 
+            type="text" 
+            value={securityAnswer}
+            onChange={(e) => setSecurityAnswer(e.target.value)}
+            style={{ 
+              width: '100%', 
+              padding: '0.75rem', 
+              border: '1px solid #ddd', 
+              borderRadius: '0.5rem'
+            }}
+          />
+        </div>
+        
+        {error && (
+          <div style={{ color: 'red', marginBottom: '1rem', textAlign: 'center' }}>
+            {error}
+          </div>
+        )}
+        
+        <button 
+          onClick={handleFamilyCodeSetupSubmit}
+          style={{
+            padding: '0.75rem 1.5rem',
+            backgroundColor: '#E67300',
+            color: 'white',
+            border: 'none',
+            borderRadius: '0.5rem',
+            cursor: 'pointer',
+            width: '100%'
+          }}
+        >
+          Save Family Code
+        </button>
+      </div>
     );
-  }
+  };
+
+  // 渲染家庭码验证表单
+  const renderFamilyCodeVerification = () => {
+    return (
+      <div id="family-code-verification" className="family-code-verification" style={{
+        backgroundColor: 'white',
+        padding: '2rem',
+        borderRadius: '0.75rem',
+        maxWidth: '500px',
+        margin: '0 auto'
+      }}>
+        <h3 style={{ marginBottom: '1.5rem', textAlign: 'center' }}>Verify Family Code</h3>
+        <p style={{ marginBottom: '1.5rem' }}>Please enter the family code and password shared by your partner.</p>
+        
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem' }}>Family Code:</label>
+          <input 
+            type="text" 
+            value={verificationCode}
+            onChange={(e) => setVerificationCode(e.target.value)}
+            style={{ 
+              width: '100%', 
+              padding: '0.75rem', 
+              border: '1px solid #ddd', 
+              borderRadius: '0.5rem'
+            }}
+          />
+        </div>
+        
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem' }}>Password:</label>
+          <input 
+            type="password" 
+            value={verificationPassword}
+            onChange={(e) => setVerificationPassword(e.target.value)}
+            style={{ 
+              width: '100%', 
+              padding: '0.75rem', 
+              border: '1px solid #ddd', 
+              borderRadius: '0.5rem'
+            }}
+          />
+        </div>
+        
+        {error && (
+          <div style={{ color: 'red', marginBottom: '1rem', textAlign: 'center' }}>
+            {error}
+          </div>
+        )}
+        
+        <button 
+          onClick={handleFamilyCodeVerification}
+          style={{
+            padding: '0.75rem 1.5rem',
+            backgroundColor: '#E67300',
+            color: 'white',
+            border: 'none',
+            borderRadius: '0.5rem',
+            cursor: 'pointer',
+            width: '100%'
+          }}
+        >
+          Verify
+        </button>
+      </div>
+    );
+  };
 
   return (
     <motion.div 
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.5 }}
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'rgba(255, 245, 235, 0.9)',
-        zIndex: 1000,
-        padding: '2rem',
-        boxSizing: 'border-box',
-        overflow: 'auto'
-      }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
     >
-      <div style={{ 
-        maxWidth: '800px', 
-        width: '90%',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center'
-      }}>
-        {/* 添加返回按钮 */}
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', width: '100%', justifyContent: 'space-between' }}>
-          <div>
-            {currentQuestion > 0 && (
+      <div className={styles.questionnaire}>
+        <div style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center',
+          width: '100%',
+          maxWidth: '800px',
+          margin: '0 auto',
+          padding: '2rem'
+        }}>
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between',
+            width: '100%',
+            marginBottom: '2rem'
+          }}>
+            <div>
               <button 
-                onClick={() => setCurrentQuestion(cq => cq - 1)}
+                onClick={togglePreviewAll}
                 style={{
                   padding: '0.5rem 1rem',
                   backgroundColor: '#F5E9DC',
                   border: 'none',
                   borderRadius: '0.5rem',
                   cursor: 'pointer',
-                  whiteSpace: 'nowrap', // 防止文本换行
-                  minWidth: '100px' // 确保按钮有足够宽度
+                  whiteSpace: 'nowrap',
+                  minWidth: '150px'
                 }}
               >
-                Previous
+                {showAllQuestions ? 'SingleQuestion' : 'Preview'}
               </button>
-            )}
+            </div>
+            <div>
+              <button 
+                onClick={() => setShowLogin(true)}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#F5E9DC',
+                  border: 'none',
+                  borderRadius: '0.5rem',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  minWidth: '100px'
+                }}
+              >
+                Login
+              </button>
+            </div>
           </div>
-          <div>
-            <button 
-              onClick={() => setShowAllQuestions(!showAllQuestions)}
-              style={{
-                padding: '0.5rem 1rem',
+        
+          <h2 style={{ 
+            fontSize: '1.75rem',
+            marginBottom: '1.5rem',
+            color: type === 'mother' ? '#E67300' : '#2E8B57'
+          }}>
+            {type === 'mother' ? 'Maternal Wellness Assessment' : 'Partner Support Evaluation'}
+          </h2>
+
+          <div style={{ width: '100%', marginBottom: '2rem' }}>
+            <div style={{ 
+              width: '100%', 
+              height: '8px', 
+              backgroundColor: '#F5E9DC',
+              borderRadius: '4px'
+            }}>
+              <div style={{ 
+                width: `${(currentQuestion / (questions.length - 1)) * 100}%`, 
+                height: '100%', 
+                backgroundColor: type === 'mother' ? '#E67300' : '#2E8B57',
+                borderRadius: '4px',
+                transition: 'width 0.3s ease'
+              }} />
+            </div>
+            <div style={{ textAlign: 'right', fontSize: '0.8rem', marginTop: '0.25rem' }}>
+              Question {currentQuestion + 1} of {questions.length}
+            </div>
+          </div>
+
+          {showAllQuestions ? (
+            <div 
+              style={{ 
+                width: '100%', 
+                height: 'calc(100vh - 200px)', // 适应窗口高度，减去顶部元素的高度
+                overflowY: 'auto', 
+                padding: '1.5rem',
+                marginBottom: '2rem',
                 backgroundColor: '#F5E9DC',
+                borderRadius: '12px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                display: 'flex',
+                flexDirection: 'column'
+              }}
+              className={styles.previewContainer}
+            >
+              <div style={{ flex: '1 1 auto', overflowY: 'auto', marginBottom: '1rem' }}>
+                {questions.map((question, index) => (
+                  <div 
+                    key={question.id} 
+                    className={styles['question-item']} 
+                    style={{ 
+                      marginBottom: '1.5rem', 
+                      padding: '1.5rem',
+                      backgroundColor: 'white',
+                      borderRadius: '0.75rem',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+                      transition: 'transform 0.2s ease',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => {
+                      setCurrentQuestion(index);
+                      setShowAllQuestions(false);
+                    }}
+                  >
+                    <h3 style={{ 
+                      marginBottom: '1rem', 
+                      fontWeight: 'bold',
+                      color: type === 'mother' ? '#E67300' : '#2E8B57' 
+                    }}>
+                      {index + 1}. {question.text}
+                    </h3>
+                    {renderQuestionContent(question)}
+                  </div>
+                ))}
+              </div>
+              
+              <div style={{ 
+                width: '100%', 
+                padding: '1rem 0',
+                position: 'sticky',
+                bottom: 0,
+                backgroundColor: '#F5E9DC'
+              }}>
+                <button
+                  onClick={handleSubmit}
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    backgroundColor: type === 'mother' ? '#E67300' : '#2E8B57',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '0.5rem',
+                    cursor: 'pointer',
+                    width: '100%',
+                    fontWeight: 'bold',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  Submit All Answers
+                </button>
+              </div>
+            </div>
+          ) : (
+            // 只显示当前问题
+            <div style={{ width: '100%' }}>
+              <motion.div 
+                key={questions[currentQuestion].id}
+                initial={{ x: 50, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ duration: 0.3 }}
+                style={{ 
+                  padding: '1.5rem',
+                  backgroundColor: 'white',
+                  borderRadius: '0.75rem',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                }}
+              >
+                <h3 style={{ marginBottom: '1.5rem' }}>{questions[currentQuestion].text}</h3>
+                {renderQuestionContent(questions[currentQuestion])}
+              </motion.div>
+              
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between',
+                marginTop: '2rem'
+              }}>
+                <button
+                  onClick={() => currentQuestion > 0 && setCurrentQuestion(cq => cq - 1)}
+                  disabled={currentQuestion === 0}
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    backgroundColor: currentQuestion === 0 ? '#ccc' : '#f0f0f0',
+                    color: currentQuestion === 0 ? '#999' : '#333',
+                    border: 'none',
+                    borderRadius: '0.5rem',
+                    cursor: currentQuestion === 0 ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  Previous
+                </button>
+                
+                {currentQuestion < questions.length - 1 ? (
+                  <button
+                    onClick={handleNextQuestion}
+                    style={{
+                      padding: '0.75rem 1.5rem',
+                      backgroundColor: type === 'mother' ? '#E67300' : '#2E8B57',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '0.5rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Next
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleSubmit}
+                    style={{
+                      padding: '0.75rem 1.5rem',
+                      backgroundColor: type === 'mother' ? '#E67300' : '#2E8B57',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '0.5rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Submit
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 条件渲染：家庭码设置 / 验证 / 登录弹窗 */}
+      {showFamilyCodeSetup && renderFamilyCodeSetup()}
+      {showFamilyCodeVerification && renderFamilyCodeVerification()}
+      {showLogin && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(255,245,235,0.95)',
+          zIndex: 1000,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center'
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '2rem',
+            borderRadius: '1rem',
+            maxWidth: '500px',
+            width: '90%'
+          }}>
+            <h2 style={{ marginBottom: '1.5rem' }}>Login with Family Code</h2>
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', marginBottom: '.5rem' }}>Family Code:</label>
+              <input 
+                type="text" 
+                value={familyCode}
+                onChange={e => setFamilyCode(e.target.value)}
+                style={{ width: '100%', padding: '.75rem', border: '1px solid #ddd', borderRadius: '.5rem' }}
+              />
+            </div>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', marginBottom: '.5rem' }}>Password:</label>
+              <input 
+                type="password" 
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                style={{ width: '100%', padding: '.75rem', border: '1px solid #ddd', borderRadius: '.5rem' }}
+              />
+            </div>
+            {error && <div style={{ color: 'red', marginBottom: '1rem', textAlign: 'center' }}>{error}</div>}
+            <button 
+              onClick={handleLoginClick}
+              style={{
+                padding: '.75rem 1.5rem',
+                backgroundColor: '#E67300',
+                color: 'white',
                 border: 'none',
-                borderRadius: '0.5rem',
+                borderRadius: '.5rem',
                 cursor: 'pointer',
-                whiteSpace: 'nowrap', // 防止文本换行
-                minWidth: '150px' // 确保按钮有足够宽度
+                width: '100%'
               }}
             >
-              {showAllQuestions ? 'Single Question Mode' : 'Preview All'}
+              Login
+            </button>
+            <button 
+              onClick={() => { setShowLogin(false); setError(''); }}
+              style={{
+                marginTop: '1rem',
+                padding: '.75rem 1.5rem',
+                backgroundColor: 'transparent',
+                color: '#E67300',
+                border: '1px solid #E67300',
+                borderRadius: '.5rem',
+                cursor: 'pointer',
+                width: '100%'
+              }}
+            >
+              Cancel
             </button>
           </div>
         </div>
-      
-        <h2 style={{ 
-          fontSize: '1.75rem',
-          marginBottom: '1.5rem',
-          color: type === 'mother' ? '#E67300' : '#2E8B57'
-        }}>
-          {type === 'mother' ? 'Maternal Wellness Assessment' : 'Partner Support Evaluation'}
-        </h2>
-
-        <div style={{ width: '100%', marginBottom: '2rem' }}>
-          <div style={{ 
-            width: '100%', 
-            height: '8px', 
-            backgroundColor: '#F5E9DC',
-            borderRadius: '4px'
-          }}>
-            <div style={{ 
-              width: `${(currentQuestion / (questions.length - 1)) * 100}%`, 
-              height: '100%', 
-              backgroundColor: type === 'mother' ? '#E67300' : '#2E8B57',
-              borderRadius: '4px',
-              transition: 'width 0.3s ease'
-            }} />
-          </div>
-          <div style={{ textAlign: 'right', fontSize: '0.8rem', marginTop: '0.25rem' }}>
-            Question {currentQuestion + 1} of {questions.length}
-          </div>
-        </div>
-
-        {showAllQuestions ? (
-          // 显示所有问题
-          <div style={{ 
-            width: '100%', 
-            maxHeight: '70vh', 
-            overflowY: 'auto', 
-            paddingRight: '1rem',
-            marginBottom: '2rem'
-          }}>
-            {questions.map((question, index) => (
-              <div key={question.id} style={{ 
-                marginBottom: '2rem', 
-                padding: '1.5rem',
-                backgroundColor: 'white',
-                borderRadius: '0.75rem',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-              }}>
-                <h3 style={{ marginBottom: '1.5rem', fontWeight: 'bold' }}>{question.text}</h3>
-                {renderQuestionContent(question)}
-              </div>
-            ))}
-            <div style={{ height: '2rem' }}></div> {/* 添加底部空间 */}
-          </div>
-        ) : (
-          // 只显示当前问题
-          <div style={{ width: '100%' }}>
-            <motion.div 
-              key={questions[currentQuestion].id}
-              initial={{ x: 50, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ duration: 0.3 }}
-              style={{ 
-                padding: '1.5rem',
-                backgroundColor: 'white',
-                borderRadius: '0.75rem',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-              }}
-            >
-              <h3 style={{ marginBottom: '1.5rem' }}>{questions[currentQuestion].text}</h3>
-              {renderQuestionContent(questions[currentQuestion])}
-            </motion.div>
-          </div>
-        )}
-      </div>
+      )}
     </motion.div>
   );
 };
 
 export default Questionnaire;
-
-
-
-
-
-
 
 
 
