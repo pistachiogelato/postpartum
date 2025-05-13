@@ -3,9 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { useUser } from '@/contexts/UserContext';
 import { useFamilyCode } from '@/contexts/FamilyCodeContext';
-import Questionnaire from '@/components/Questionnaire';
+import Questionnaire from '@/components/questionnaire/Questionnaire';
+import MainMenu from './mainmenu';
+import { useRouter } from 'next/router';
 
-type Stage = 'name' | 'type' | 'questionnaire';
+type Stage = 'name' | 'type' | 'mainMenu' | 'questionnaire';
 
 const encouragementMessages = [
   "Every journey begins with a single step 🌱",
@@ -15,6 +17,7 @@ const encouragementMessages = [
 
 export default function Home() {
   const [error, setError] = useState('');  // 添加这行
+  const router = useRouter();
   const { userName, setUserName, userType, setUserType } = useUser();
   const { 
     familyCode,
@@ -23,7 +26,7 @@ export default function Home() {
     setPassword,
     generateFamilyCode
   } = useFamilyCode();
-  const [stage, setStage] = useState<Stage>('name');
+  const [stage, setStage] = useState<'name' | 'type' | 'mainMenu' | 'questionnaire'>('name');
   const [showLogin, setShowLogin] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm<{ name: string }>();
 
@@ -45,7 +48,10 @@ export default function Home() {
     <main className="min-h-screen bg-warm-cream flex items-center justify-center p-4">
       {!showLogin && stage !== 'questionnaire' && (
         <button 
-          onClick={() => setShowLogin(true)}
+          onClick={() => {
+            setShowLogin(true);
+            
+          }}
           style={{
             position: 'absolute',
             top: '1rem',
@@ -148,7 +154,23 @@ export default function Home() {
                 zIndex: 100
               }}
             >
-              <Questionnaire type={userType} />
+              <Questionnaire 
+                type={userType} 
+                stage={stage}
+                setStage={setStage}
+              />
+            </motion.div>
+          )}
+
+          {stage === 'mainMenu' && (
+            <motion.div
+              key="mainmenu-stage"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.4 }}
+            >
+              <MainMenu />
             </motion.div>
           )}
         </AnimatePresence>
@@ -265,9 +287,10 @@ export default function Home() {
                   
                   // 登录成功后的处理
                   setShowLogin(false);
-                  setStage('questionnaire');
+                  //setStage('mainMenu');  // 修改这里
                   // 可以添加成功提示
                   alert('Login successful!');
+                  router.push('/mainmenu');
                 }
               }}
               style={{
@@ -306,6 +329,8 @@ export default function Home() {
     </main>
   );
 }
+
+
 
 
 
